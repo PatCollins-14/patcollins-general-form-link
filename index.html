@@ -104,6 +104,7 @@
     text-align: left;
     transition: transform .16s cubic-bezier(.23,1,.32,1), border-color .16s cubic-bezier(.23,1,.32,1), box-shadow .16s cubic-bezier(.23,1,.32,1), background-color .16s;
   }
+  a.choice-card { text-decoration: none; }
   .choice-card:hover, .answer-card:hover {
     border-color: var(--amber); transform: translateY(-2px); box-shadow: 0 9px 24px #0b172817;
   }
@@ -145,6 +146,11 @@
   }
   .back:hover { color: var(--ink); background: var(--amber-tint); }
   .head { margin-bottom: 20px; text-align: center; }
+  .flow-badge {
+    display: grid; place-items: center; width: 48px; height: 48px; margin: 0 auto 12px;
+    border-radius: 16px; background: var(--amber-tint); color: var(--amber-deep);
+    box-shadow: 0 10px 24px rgba(235, 163, 26, .16);
+  }
   .step { max-width: 560px; margin: 0 auto; }
 
   .info-link {
@@ -279,8 +285,10 @@ const CONFIG = {
   // Button on the final screen ("Schedule a conversation").
   BOOKING_URL: "https://prod.lendingpad.com/emci/38d77370-2060-489a-a024-4bdc8db0a865/pos#/",
 
-  // Link under the first question ("Ready to apply?"). Set to "" to hide it.
-  APPLY_URL: "https://prod.lendingpad.com/emci/38d77370-2060-489a-a024-4bdc8db0a865/pos#/",
+  // Optional download links shown on the thank-you screen for the free resources.
+  // Leave empty to show the "check your inbox" message without a button.
+  PLAYBOOK_URL: "",
+  GUIDE_URL: "",
 
   ADVISOR: "Pat",
 
@@ -295,124 +303,43 @@ const CONFIG = {
    QUESTION FLOWS
    kinds: choice | multi | text | money | address | contact | phone
    ========================================================================== */
-const USAGE = ["Primary residence", "Second home", "Rental property", "Investment property"];
-const opts = (list, icon) => list.map(l => ({ label: l, value: l, icon: icon || "home" }));
 const mk = (pairs) => pairs.map(p => ({ label: p[0], value: p[0], icon: p[1], detail: p[2] }));
 
-const CASH_USE = [
-  { label: "Pay off debt", value: "Pay off debt", icon: "cash", detail: "Credit cards, personal loans, student loans" },
-  { label: "Pay for a one-time expense", value: "Pay for a one-time expense", icon: "home", detail: "Home improvements, medical bills, large purchases" },
-  { label: "Pay for a recurring expense", value: "Pay for a recurring expense", icon: "calendar", detail: "Monthly payments, tuition, ongoing obligations" },
-  { label: "Pay for something else", value: "Pay for something else", icon: "spark", detail: "Emergency cash reserve, investing, other" }
+// First-screen choices, in order. An item with `href` opens that link; otherwise it starts FLOWS[flow].
+const INTRO = [
+  { label: "Let’s talk about home mortgages", icon: "talk", href: "https://check.letstalkhomemortgage.com/" },
+  { label: "Join D&S Newsletter", icon: "mail", href: "https://dollarsnsense.io/#newsletter" },
+  { label: "Get my FREE D&S Playbook", icon: "book", flow: "playbook" },
+  { label: "Get my FREE Home Buyer Guide", icon: "key", flow: "guide" }
 ];
 
-const PHONE_Q = (supporting) => ({
-  id: "phone", kind: "phone", eyebrow: "Phone number", title: "Enter your phone number.",
-  supporting: supporting || "We’ll use this to reach you about scheduling your appointment.", buttonLabel: "Continue"
-});
-
 const FLOWS = {
-  purchase: {
-    label: "Buy a home", icon: "home",
+  playbook: {
+    label: "Get my FREE D&S Playbook", icon: "book",
     questions: [
-      { id: "purchaseJourney", kind: "choice", eyebrow: "Home buying process", title: "Where are you in the home buying process?",
+      { id: "contact", kind: "contact", submit: true, eyebrow: "Free D&S Playbook", title: "Where should we send your free D&S Playbook?",
+        supporting: "Enter your name and email and we’ll send it right over.", buttonLabel: "Send me the Playbook",
+        note: "Your information is private. You can unsubscribe at any time." }
+    ],
+    done: { eyebrow: "Your Playbook is on its way", title: "Check your inbox for your D&S Playbook.",
+            copy: "It should arrive in a few minutes. If you don’t see it, check your spam or promotions folder.",
+            buttonKey: "PLAYBOOK_URL", buttonLabel: "Get my Playbook", buttonIcon: "book" }
+  },
+
+  guide: {
+    label: "Get my FREE Home Buyer Guide", icon: "key",
+    questions: [
+      { id: "guideStage", kind: "choice", eyebrow: "Free Home Buyer Guide", title: "Where are you in the home buying process?",
         options: mk([["Signed a purchase agreement", "home"], ["Making offers", "landmark"], ["Going to open houses", "location"], ["Just researching", "spark"]]) },
-      { id: "purchaseTimeline", kind: "choice", eyebrow: "Purchase timing", title: "When do you plan to buy?",
-        options: opts(["0–3 months", "3–6 months", "6+ months", "Not sure"], "calendar") },
-      { id: "purchaseUsage", kind: "choice", eyebrow: "Property use", title: "How will you use this home?",
-        options: mk([["Primary residence", "home"], ["Second home", "building"], ["Rental property", "building"], ["Investment property", "cash"]]) },
-      { id: "purchasePropertyType", kind: "choice", eyebrow: "Property type", title: "What type of home?",
-        options: mk([["Single Family", "home"], ["Condo", "building"], ["Co-op", "building"], ["2 to 4 units", "building"], ["Manufactured home", "home"]]) },
-      { id: "purchaseUnits", kind: "choice", eyebrow: "Property type", title: "How many units will the property have?",
-        when: a => a.purchasePropertyType === "2 to 4 units",
-        options: opts(["2 units", "3 units", "4 units"], "building") },
-      { id: "purchaseOwnership", kind: "choice", eyebrow: "Buyer history", title: "Have you owned any property in the last three years?",
-        infoLabel: "What is a first-time home buyer?",
-        info: "Lenders generally treat you as a first-time home buyer if you haven’t owned a home in the last three years. Some programs use their own definition, so we’ll confirm what applies to you.",
-        options: [{ label: "Yes", value: "Yes", icon: "home" }, { label: "No", value: "No", icon: "users" }] },
-      { id: "purchaseArea", kind: "text", eyebrow: "Purchase area", title: "Where are you looking to buy?",
-        inputLabel: "City, State, or ZIP code", placeholder: "City, State, or ZIP code", buttonLabel: "Next",
-        note: "Enter the city, state, or ZIP code where you plan to buy." },
-      { id: "contact", kind: "contact", eyebrow: "Your information", title: "Let’s start personalizing your offer!", buttonLabel: "Continue" },
-      PHONE_Q()
-    ]
+      { id: "contact", kind: "contact", submit: true, eyebrow: "Free Home Buyer Guide", title: "Where should we send your free Home Buyer Guide?",
+        supporting: "Enter your name and email and we’ll send it right over.", buttonLabel: "Send me the Guide",
+        note: "Your information is private. You can unsubscribe at any time." }
+    ],
+    done: { eyebrow: "Your Guide is on its way", title: "Check your inbox for your Home Buyer Guide.",
+            copy: "It should arrive in a few minutes. If you don’t see it, check your spam or promotions folder.",
+            buttonKey: "GUIDE_URL", buttonLabel: "Get my Guide", buttonIcon: "key" }
   },
 
-  refinance: {
-    label: "Refinance a mortgage", icon: "landmark",
-    questions: [
-      { id: "refinanceGoals", kind: "multi", eyebrow: "Refinance goals", title: "What are your refinance goals?",
-        supporting: "Choose the goal that best matches what you want to do.",
-        options: mk([["Lower my monthly payment", "cash"], ["Long-term savings", "calendar"], ["Take cash out", "landmark"], ["Just checking rates", "spark"]]) },
-      { id: "refinanceCashUse", kind: "multi", eyebrow: "Cash use", title: "How will you use this cash?",
-        supporting: "This helps us recommend the best loan options for you.",
-        when: a => (a.refinanceGoals || []).includes("Take cash out"), options: CASH_USE },
-      { id: "refinanceAddress", kind: "address", eyebrow: "Your property", title: "What home are you refinancing?",
-        infoLabel: "Why do we need this?",
-        info: "The property address lets us confirm details like location and loan limits, so the options we discuss actually fit your home." },
-      { id: "refinanceUsage", kind: "choice", eyebrow: "Property use", title: "How do you use this property?",
-        options: mk([["Primary residence", "home"], ["Second home", "building"], ["Rental property", "building"], ["Investment property", "cash"]]) },
-      { id: "refinancePropertyType", kind: "choice", eyebrow: "Property type", title: "What type of property is it?",
-        options: mk([["Single Family", "home"], ["Condo", "building"], ["2 to 4 units", "building"], ["Manufactured home", "home"]]) },
-      { id: "refinanceHomeValue", kind: "money", eyebrow: "Home value", title: "What’s your estimated home value?",
-        inputLabel: "Estimated home value", placeholder: "500,000" },
-      { id: "contact", kind: "contact", eyebrow: "Your information", title: "Let’s start personalizing your offer!", buttonLabel: "Continue" },
-      PHONE_Q()
-    ]
-  },
-
-  equity: {
-    label: "Use my home equity", icon: "cash",
-    questions: [
-      { id: "equityCashUse", kind: "multi", eyebrow: "Cash use", title: "How will you use this cash?",
-        supporting: "This helps us recommend the best loan options for you.", options: CASH_USE },
-      { id: "equityAddress", kind: "address", eyebrow: "Your property", title: "What’s the address of the property you’d like to borrow from?",
-        infoLabel: "Why do we need this?",
-        info: "The property address lets us confirm details like location and loan limits, so the options we discuss actually fit your home." },
-      { id: "equityUsage", kind: "choice", eyebrow: "Property use", title: "How do you use this property?",
-        options: mk([["Primary residence", "home"], ["Second home", "building"], ["Rental property", "building"], ["Investment property", "cash"]]) },
-      { id: "equityPropertyType", kind: "choice", eyebrow: "Property type", title: "What type of property is it?",
-        infoLabel: "I don’t know my property type",
-        info: "No problem. Pick the closest match, and we’ll confirm the details with you later.",
-        options: mk([["Single family or Townhome", "home"], ["Condo", "building"], ["2 to 4 units", "building"]]) },
-      { id: "equityHomeValue", kind: "money", eyebrow: "Home value", title: "What is your home’s estimated value?",
-        supporting: "This is just an estimate, we’ll verify later.",
-        inputLabel: "Estimated home value", placeholder: "500,000" },
-      { id: "contact", kind: "contact", eyebrow: "Your information", title: "We need a bit more info to find your custom rates", buttonLabel: "Continue" },
-      PHONE_Q()
-    ]
-  },
-
-  reverse: {
-    label: "Reverse Mortgage", icon: "users",
-    questions: [
-      { id: "reverseAge", kind: "choice", eyebrow: "Borrower age", title: "How old is the youngest homeowner?",
-        supporting: "Reverse mortgage eligibility and available proceeds are based in part on the youngest homeowner’s age.",
-        options: opts(["Under 62", "62–69", "70–79", "80 or older"], "users") },
-      { id: "reverseGoal", kind: "choice", eyebrow: "Your goal", title: "What would you like a reverse mortgage to help you do?",
-        options: mk([["Supplement retirement income", "cash"], ["Pay off my existing mortgage", "landmark"], ["Create a cash reserve", "cash"], ["Pay for home improvements or care", "home"], ["I’m still exploring my options", "spark"]]) },
-      { id: "reverseAddress", kind: "address", eyebrow: "Your property", title: "What is the address of the home you’d like to use?",
-        supporting: "We’ll use the property details to identify the reverse mortgage options that may fit." },
-      { id: "reversePropertyType", kind: "choice", eyebrow: "Property type", title: "What type of property is it?",
-        options: mk([["Single family home", "home"], ["Townhome", "home"], ["Condominium", "building"], ["2 to 4 unit property", "building"], ["Manufactured home", "home"]]) },
-      { id: "reverseHomeValue", kind: "money", eyebrow: "Home value", title: "What is the home’s estimated value?",
-        supporting: "An estimate is enough for now; the value will be verified later.",
-        inputLabel: "Estimated home value", placeholder: "650,000" },
-      { id: "reverseMortgageBalance", kind: "money", eyebrow: "Current mortgage", title: "About how much do you still owe on the home?",
-        supporting: "A reverse mortgage may first be used to pay off an existing mortgage balance.",
-        inputLabel: "Estimated mortgage balance", placeholder: "150,000" },
-      { id: "reverseMarried", kind: "choice", eyebrow: "Household", title: "Are you married?",
-        supporting: "This helps us understand whether a spouse may need to be included in the conversation.",
-        options: [{ label: "Yes", value: "Yes", icon: "users" }, { label: "No", value: "No", icon: "users" }] },
-      { id: "reverseSpouseAge", kind: "text", eyebrow: "Spouse information", title: "What is your spouse’s age?",
-        supporting: "Please enter the age of your spouse so we can prepare for a more accurate conversation.",
-        inputLabel: "Spouse age", placeholder: "Age", numeric: true, maxLength: 3,
-        when: a => a.reverseMarried === "Yes" },
-      { id: "contact", kind: "contact", eyebrow: "Your information", title: "Let’s find the right reverse mortgage conversation for you.",
-        supporting: "We’ll use your information to prepare for a no-pressure discussion of your options.", buttonLabel: "Continue" },
-      PHONE_Q("We’ll use this to reach you about scheduling your reverse mortgage appointment.")
-    ]
-  }
 };
 
 const STATES = "AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY".split(" ");
@@ -421,6 +348,10 @@ const STATES = "AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD M
    ICONS (inline, lucide-style)
    ========================================================================== */
 const P = {
+  talk: '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z"/><path d="M9 13v-2.2l3-2.3 3 2.3V13z"/>',
+  mail: '<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
+  book: '<path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>',
+  key: '<path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/>',
   home: '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
   landmark: '<path d="M10 18v-7"/><path d="M11.12 2.198a2 2 0 0 1 1.76.006l7.866 3.847c.476.233.31.949-.22.949H3.474c-.53 0-.695-.716-.22-.949z"/><path d="M14 18v-7"/><path d="M18 18v-7"/><path d="M3 22h18"/><path d="M6 18v-7"/>',
   location: '<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
@@ -446,7 +377,7 @@ function icon(name, size, sw) {
    STATE + HELPERS
    ========================================================================== */
 const app = document.getElementById("app");
-const state = { flow: null, idx: 0, answers: {}, dir: "fwd", errors: {}, submitting: false, submitError: "", showInfo: false, showUnit: false };
+const state = { flow: null, parent: null, idx: 0, answers: {}, dir: "fwd", errors: {}, submitting: false, submitError: "", showInfo: false, showUnit: false };
 
 const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const emailOk = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v || "");
@@ -470,14 +401,16 @@ function go(dir) {
   state.errors = {}; state.submitError = ""; state.showInfo = false; state.showUnit = false;
   render();
 }
-function startFlow(key) {
-  state.flow = key; state.idx = 0; state.answers = {}; state.dir = "fwd";
+function startFlow(key, parent) {
+  state.flow = key; state.parent = parent || null; state.idx = 0; state.answers = {}; state.dir = "fwd";
   state.errors = {}; state.submitError = ""; state.showInfo = false; state.showUnit = false;
   render();
 }
-function reset() { state.flow = null; state.idx = 0; state.answers = {}; render(); }
+function reset() { state.flow = null; state.parent = null; state.idx = 0; state.answers = {}; render(); }
 function back() {
-  if (state.idx === 0) { state.flow = null; render(); } else go("back");
+  if (state.idx > 0) return go("back");
+  if (state.parent) return startFlow(state.parent);
+  state.flow = null; render();
 }
 
 /* ==========================================================================
@@ -492,24 +425,28 @@ function render() {
 }
 
 function renderIntro() {
-  const cards = Object.keys(FLOWS).map(k =>
-    '<button class="choice-card" data-flow="' + k + '">' +
-      '<span class="icon-chip">' + icon(FLOWS[k].icon) + '</span>' +
-      '<span class="card-label">' + esc(FLOWS[k].label) + '</span>' +
-      '<span class="chev">' + icon("right") + '</span>' +
-    '</button>').join("");
+  const cards = INTRO.map(c => {
+    const inner =
+      '<span class="icon-chip">' + icon(c.icon) + '</span>' +
+      '<span class="card-label">' + esc(c.label) + '</span>' +
+      '<span class="chev">' + icon("right") + '</span>';
+    return c.href
+      ? '<a class="choice-card" href="' + esc(c.href) + '" target="_top">' + inner + '</a>'
+      : '<button class="choice-card" data-flow="' + esc(c.flow) + '">' + inner + '</button>';
+  }).join("");
   app.innerHTML =
     '<section class="intro">' +
-      '<p class="eyebrow">Clarity before commitment</p>' +
       '<h1 class="title" tabindex="-1">What can I help you with?</h1>' +
       '<div class="choice-list">' + cards + '</div>' +
-      (CONFIG.APPLY_URL ? '<a class="apply-link" href="' + esc(CONFIG.APPLY_URL) + '" target="_blank" rel="noopener noreferrer">Ready to apply? Begin your application</a>' : '') +
     '</section>';
   $$("[data-flow]").forEach(b => b.addEventListener("click", () => startFlow(b.dataset.flow)));
 }
 
 function renderQuestion(q, total) {
   const pct = Math.round(((state.idx) / total) * 100);
+  const f = FLOWS[state.flow];
+  const badgeIcon = f.icon === "talk" || !["mail", "book", "key"].includes(f.icon) ? "talk" : f.icon;
+  const showCount = total > 1;
   let body = "";
   switch (q.kind) {
     case "choice": body = bodyChoice(q); break;
@@ -522,10 +459,11 @@ function renderQuestion(q, total) {
   }
   app.innerHTML =
     '<div class="shell ' + (state.dir === "back" ? "slide-back" : "slide-fwd") + '">' +
-      '<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pct + '"><span style="width:' + pct + '%"></span></div>' +
+      (showCount ? '<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pct + '"><span style="width:' + pct + '%"></span></div>' : '') +
       '<button class="back" id="back">' + icon("back", 16, 2.2) + ' Back</button>' +
       '<div class="head">' +
-        '<p class="eyebrow">' + esc(q.eyebrow) + '<span class="dot">·</span>' + (state.idx + 1) + ' of ' + total + '</p>' +
+        '<span class="flow-badge" aria-hidden="true">' + icon(badgeIcon, 24, 1.9) + '</span>' +
+        '<p class="eyebrow">' + esc(q.eyebrow) + (showCount ? '<span class="dot">·</span>' + (state.idx + 1) + ' of ' + total : '') + '</p>' +
         '<h1 class="title" tabindex="-1">' + esc(q.title) + '</h1>' +
         (q.supporting ? '<p class="supporting">' + esc(q.supporting) + '</p>' : '') +
         (q.info ? '<button class="info-link" id="info-toggle" aria-expanded="' + state.showInfo + '">' + esc(q.infoLabel) + '</button>' +
@@ -609,8 +547,9 @@ function bodyContact(q) {
     '<label class="field-label">Last name<input class="field-input' + inv("last") + '" id="c-last" autocomplete="family-name" value="' + esc(a.contactLastName || "") + '">' + err("last") + '</label>' +
     '<label class="field-label span-2">Email<input class="field-input' + inv("email") + '" id="c-email" type="email" autocomplete="email" inputmode="email" value="' + esc(a.contactEmail || "") + '">' + err("email") + '</label>' +
     '</div>' +
-    '<button class="continue mt-3" type="submit">' + esc(q.buttonLabel || "Continue") + ' ' + icon("arrow") + '</button>' +
-    '<p class="note">' + icon("shield", 16) + '<span>Your information is private and only used to prepare for your conversation.</span></p></form>';
+    '<button class="continue mt-3" type="submit"' + (state.submitting ? " disabled" : "") + '>' + (state.submitting ? "Saving your information…" : esc(q.buttonLabel || "Continue") + " " + icon("arrow")) + '</button>' +
+    (state.submitError ? '<p class="form-error" role="alert">' + esc(state.submitError) + '</p>' : '') +
+    '<p class="note">' + icon("shield", 16) + '<span>' + esc(q.note || "Your information is private and only used to prepare for your conversation.") + '</span></p></form>';
 }
 function bodyPhone(q) {
   const e = state.errors;
@@ -630,6 +569,7 @@ const bind = {
     $$(".answer-card").forEach(btn => btn.addEventListener("click", () => {
       state.answers[q.id] = btn.dataset.value;
       $$(".answer-card").forEach(b => { const on = b === btn; b.classList.toggle("selected", on); b.setAttribute("aria-checked", on); });
+      if (q.goto) { const parent = state.flow, target = q.goto[btn.dataset.value]; setTimeout(() => startFlow(target, parent), 180); return; }
       setTimeout(() => go("fwd"), 180);
     }));
   },
@@ -703,8 +643,9 @@ const bind = {
       state.answers[ids[n]] = e.target.value;
       if (state.errors[n]) { delete state.errors[n]; e.target.classList.remove("invalid"); const s = e.target.parentNode.querySelector(".field-error"); if (s) s.remove(); }
     }));
-    form.addEventListener("submit", e => {
+    form.addEventListener("submit", async e => {
       e.preventDefault();
+      if (state.submitting) return;
       const a = state.answers, er = {};
       if (!(a.contactFirstName || "").trim()) er.first = "Please include a first name.";
       if (!(a.contactLastName || "").trim()) er.last = "Please include a last name.";
@@ -712,7 +653,12 @@ const bind = {
       else if (!emailOk(a.contactEmail.trim())) er.email = "Please enter a valid email address.";
       if (Object.keys(er).length) { state.errors = er; renderQuestion(q, questions().length); const first = $(".invalid"); if (first) first.focus(); return; }
       a.contactFirstName = a.contactFirstName.trim(); a.contactLastName = a.contactLastName.trim(); a.contactEmail = a.contactEmail.trim();
-      go("fwd");
+      if (!q.submit) return go("fwd");
+      state.submitting = true; state.submitError = "";
+      renderQuestion(q, questions().length);
+      const ok = await submitLead();
+      state.submitting = false;
+      if (ok) go("fwd"); else renderQuestion(q, questions().length);
     });
   },
   phone(q) {
@@ -787,13 +733,21 @@ async function submitLead() {
    DONE
    ========================================================================== */
 function renderDone() {
+  const d = Object.assign({
+    eyebrow: "Your next step is ready",
+    title: "Let’s talk about your next move.",
+    copy: "You’ve given " + CONFIG.ADVISOR + " a helpful starting point. Schedule a no-pressure conversation to compare the options, costs, and tradeoffs that matter to you.",
+    buttonKey: "BOOKING_URL", buttonLabel: "Schedule a conversation", buttonIcon: "calendar"
+  }, FLOWS[state.flow].done || {});
+  const url = d.buttonKey ? CONFIG[d.buttonKey] : "";
+  const badge = d.buttonIcon === "calendar" ? "clipboard" : FLOWS[state.flow].icon;
   app.innerHTML =
     '<section class="done">' +
-      '<div class="done-badge">' + icon("clipboard", 28, 1.8) + '<span class="pip">' + icon("check", 14, 3) + '</span></div>' +
-      '<p class="eyebrow">Your next step is ready</p>' +
-      '<h1 class="title" tabindex="-1">Let’s talk about your next move.</h1>' +
-      '<p class="copy">You’ve given ' + esc(CONFIG.ADVISOR) + ' a helpful starting point. Schedule a no-pressure conversation to compare the options, costs, and tradeoffs that matter to you.</p>' +
-      (CONFIG.BOOKING_URL ? '<a class="booking" href="' + esc(CONFIG.BOOKING_URL) + '" target="_blank" rel="noopener noreferrer">' + icon("calendar") + ' Schedule a conversation ' + icon("arrow") + '</a>' : '') +
+      '<div class="done-badge">' + icon(badge, 28, 1.8) + '<span class="pip">' + icon("check", 14, 3) + '</span></div>' +
+      '<p class="eyebrow">' + esc(d.eyebrow) + '</p>' +
+      '<h1 class="title" tabindex="-1">' + esc(d.title) + '</h1>' +
+      '<p class="copy">' + esc(d.copy) + '</p>' +
+      (url ? '<a class="booking" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' + icon(d.buttonIcon || "arrow") + ' ' + esc(d.buttonLabel) + ' ' + icon("arrow") + '</a>' : '') +
       '<button class="text-link mt-4" id="restart">Start over</button>' +
     '</section>';
   $("#restart").addEventListener("click", reset);
