@@ -303,11 +303,9 @@ const CONFIG = {
    QUESTION FLOWS
    kinds: choice | multi | text | money | address | contact | phone
    ========================================================================== */
-const mk = (pairs) => pairs.map(p => ({ label: p[0], value: p[0], icon: p[1], detail: p[2] }));
-
 // First-screen choices, in order. An item with `href` opens that link; otherwise it starts FLOWS[flow].
 const INTRO = [
-  { label: "Let’s talk about home mortgages", icon: "talk", href: "https://check.letstalkhomemortgage.com/" },
+  { label: "Let’s Talk About Home Mortgages", icon: "talk", href: "https://check.letstalkhomemortgage.com/" },
   { label: "Join D&S Newsletter", icon: "mail", href: "https://dollarsnsense.io/#newsletter" },
   { label: "Get my FREE D&S Playbook", icon: "book", flow: "playbook" },
   { label: "Get my FREE Home Buyer Guide", icon: "key", flow: "guide" }
@@ -329,8 +327,6 @@ const FLOWS = {
   guide: {
     label: "Get my FREE Home Buyer Guide", icon: "key",
     questions: [
-      { id: "guideStage", kind: "choice", eyebrow: "Free Home Buyer Guide", title: "Where are you in the home buying process?",
-        options: mk([["Signed a purchase agreement", "home"], ["Making offers", "landmark"], ["Going to open houses", "location"], ["Just researching", "spark"]]) },
       { id: "contact", kind: "contact", submit: true, eyebrow: "Free Home Buyer Guide", title: "Where should we send your free Home Buyer Guide?",
         supporting: "Enter your name and email and we’ll send it right over.", buttonLabel: "Send me the Guide",
         note: "Your information is private. You can unsubscribe at any time." }
