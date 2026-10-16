@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Ask Patrick Collins | Free D&amp;S Playbook &amp; Home Buyer Guide</title>
 <meta name="description" content="Talk home mortgages with Patrick Collins, join the D&amp;S Newsletter, or get your free D&amp;S Playbook and Free Home Buyer Guide.">
 <meta name="author" content="Patrick Collins">
@@ -95,6 +95,8 @@
     color: var(--ink);
     font-family: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
     -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
   button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
   button:disabled { cursor: not-allowed; }
@@ -111,9 +113,9 @@
 
   .stage {
     position: relative; z-index: 1;
-    min-height: 100vh; min-height: 100svh;
+    min-height: 100vh; min-height: 100dvh;
     display: flex; align-items: center; justify-content: center;
-    padding: 28px 20px 40px;
+    padding: max(28px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(40px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
   }
   .stage-inner { width: 100%; display: flex; justify-content: center; }
 
@@ -317,10 +319,25 @@
   button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid #eba31a73; outline-offset: 3px; }
 
   @media (max-width: 520px) {
-    .stage { align-items: flex-start; padding-top: 24px; }
-    .intro { padding: 22px 16px; border-radius: 20px; }
-    .choice-card, .answer-card { gap: 10px; padding: 12px 11px; }
-    .icon-chip { width: 34px; height: 34px; border-radius: 10px; }
+    /* Keep the funnel vertically centered, nudged slightly above true center */
+    .stage { align-items: center; padding: 20px 16px calc(9vh + env(safe-area-inset-bottom)); }
+    .intro { padding: 24px 16px 20px; border-radius: 22px; }
+    .choice-list { margin-top: 18px; }
+    .choice-card, .answer-card { gap: 12px; padding: 12px; min-height: 60px; }
+    .choice-card .card-label { font-size: .97rem; }
+    .icon-chip { width: 38px; height: 38px; border-radius: 11px; }
+    .head { margin-bottom: 18px; }
+    .flow-badge { width: 44px; height: 44px; border-radius: 14px; margin-bottom: 10px; }
+    .back { min-height: 44px; margin-bottom: 6px; padding: 8px 14px 8px 10px; font-size: .85rem; }
+    .info-link { min-height: 44px; }
+    .continue { min-height: 56px; }
+    .field-input { padding: 14px 14px; }
+    .done .eyebrow { font-size: 11px; }
+    .booking { width: 100%; }
+  }
+  /* Short screens (landscape phones): let the page scroll from the top */
+  @media (max-height: 520px) {
+    .stage { align-items: flex-start; padding-bottom: 24px; }
   }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
